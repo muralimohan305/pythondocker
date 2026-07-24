@@ -1,0 +1,38 @@
+name: Docker Demo CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: fastapi-demo:ci
+
+      - name: Smoke test the container
+        run: |
+          set -e
+          docker run -d --rm -p 8000:8000 --name fastapi-demo fastapi-demo:ci
+          trap 'docker rm -f fastapi-demo >/dev/null 2>&1 || true' EXIT
+
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8000/; then
+              echo "App responded successfully"
+              break
+            fi
+            sleep 2
+          done
